@@ -297,3 +297,47 @@ docker compose --profile host run --rm eval-host
 
 Змінні й команди в нього ті самі, що в `eval`. Стенд на іншому порту — у
 `.env` задай `EVAL_STAND_URL=http://127.0.0.1:<порт>`.
+
+## L08 · Observability & Cost Report
+
+Report: [`l08/observability-cost-report.md`](l08/observability-cost-report.md) · empty template: [`l08/observability-cost-report.template.md`](l08/observability-cost-report.template.md) · B4 raw results: [`l08/b4.json`](l08/b4.json)
+
+This repository is a copy of the **L05 kit** (`paypilot-l05-eval`), not of the L03 kit named in the HW text: the L03 runner cannot load the L05 dialog cases (`unknown oracle 'engine:disputes'`), and the mentor confirmed to use the L05 runner. Its `budget` check compares `tokens_total` to the **sum of all runs** of a case, counts `identical_tool_calls_max` by tool **name** on the **last step**, and compares `latency_ms` to the **slowest** run — the thresholds below are set accordingly.
+
+### Run
+
+Stand `paypilot-stand-shared` at `74f1995`, `.env`: `LLM_PROVIDER=openrouter`, `LLM_MODEL=anthropic/claude-haiku-5.5`, `PROFILE=clean`, `TRACE_CAPTURE_CONTENT=1`.
+
+    docker compose run --rm eval --set l05_dialogs --dry-run
+    docker compose run --rm eval --set l05_dialogs --gate all --profile lesson-08
+    docker compose run --rm eval --set l05_dialogs --gate all --profile clean
+
+The last command also returns the stand to `clean`. `set_hash`: `0d2c2758bdff`.
+
+B4 (model migration) runs in the L08 kit:
+
+    cd ~/paypilot/l08 && docker compose run --rm eval --scenario B4 --table --json b4.json
+
+### Budget cases (sets/l05_dialogs.jsonl)
+
+| id | What it catches | identical_tool_calls_max | tokens_total | latency_ms | gate / runs |
+| --- | --- | --- | --- | --- | --- |
+| BUD-D14 | D14: empty result → repeated `get_transactions` (CUS-0003) | 1 | — | — | daily / 1 |
+| BUD-H01 | D15 on the CONV-H01 dialog (7 steps) | — | 245 000 | 60 000 | release / 5 |
+| BUD-H02 | control: 2 steps, too short for D15 | — | 70 000 | 15 000 | release / 5 |
+| BUD-H03 | D15 on the CONV-H03 dialog (10 steps) | — | 380 000 | 80 000 | release / 5 |
+| BUD-H04 | D15 on the CONV-H04 dialog (7 steps) | — | 285 000 | 60 000 | release / 5 |
+| BUD-H05 | D15 on the CONV-H05 dialog (7 steps) | — | 310 000 | 60 000 | release / 5 |
+| C07-BUDGET | D15 on C-07 (7 steps, lab case) | — | 340 000 | 60 000 | release / 5 |
+
+`tokens_total` = sum of 5 runs (median of the clean baseline 2026-11-06 × 5 + margin). CONV-H01…H05 are the HW_4 memory cases, unchanged.
+
+### Runs
+
+| What | Profile / model | Report |
+| --- | --- | --- |
+| set l05_dialogs | clean · haiku 5.5 | [`reports/l05_dialogs-clean-20261106T164645.json`](reports/l05_dialogs-clean-20261106T164645.json) — 9/12 |
+| set l05_dialogs | lesson-08 · haiku 5.5 | [`reports/l05_dialogs-lesson-08-20261106T162216.json`](reports/l05_dialogs-lesson-08-20261106T162216.json) — 6/12 |
+| B4 | haiku 5.5, gemini 2.5 flash | [`l08/b4.json`](l08/b4.json) |
+
+Measurement runs for the thresholds (budget cases only, no thresholds yet): `reports/l05_dialogs-clean-20261106T154957.json`, `reports/l05_dialogs-lesson-08-20261106T160634.json`.
